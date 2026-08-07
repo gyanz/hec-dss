@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-HECDSS_API const char *hec_dss_api_version() { return "0.4.0"; }
+HECDSS_API const char *hec_dss_api_version() { return "0.5.0"; }
 
 #if defined(__GNUC__) || defined(__sun__)
 #define MIN(a, b)                                                              \
@@ -166,11 +166,31 @@ void hec_dss_array_copy_int(int *destination, const long destinationSize,
   }
 }
 HECDSS_API int hec_dss_open(const char *filename, dss_file **dss) {
+  return hec_dss_open_ex(filename, dss, 0);
+}
+
+/*
+*				int access:  read/write access to the file
+*					0 - GENERAL_ACCESS:  Doesn't matter (no error if file doesn't have write permission)
+*					1 - READ_ACCESS:  Read only (will not allow writing to file)
+*					2 - MULTI_USER_ACCESS:  Read/Write permission with full mutil-user access
+*						(usually slow, but necessary for multiple processes)
+*					3 - SINGLE_USER_ADVISORY_ACCESS:  Read/Write permission with mutil-user advisory access
+*						(throws an error if file is read only).  Best (and default access)
+*					4 - EXCLUSIVE_ACCESS:  Exclusive write (used for squeezing).  Throws an error if not available.
+ */
+HECDSS_API int hec_dss_open_ex(const char *filename, dss_file **dss,
+                               int access) {
   dss_file *f = (dss_file *)malloc(sizeof(dss_file));
   if (f == NULL)
     return -1;
+  // readonly can only be from 0 to 4
+  if (access < 0 || access > 4) {
+    free(f);
+    return -1;
+  }
 
-  int status = hec_dss_zopen(f->ifltab, filename);
+  int status = zopenExtended(f->ifltab, filename, 0, access, 0, 0, 0);
   if (status != 0) {
     free(f);
     return status;
